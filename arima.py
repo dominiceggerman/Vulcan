@@ -11,7 +11,7 @@ from statsmodels.tsa.arima_model import ARIMA
 # ARIMA modelling
 def arima(df, p, d, q):
     # Fit model
-    mod = ARIMA(df, order(p,d,q))
+    mod = ARIMA(df.set_index("WeekEnding"), order=(p,d,q))
     mod_fit = mod.fit(disp=0)
     print(mod_fit.summary())
 
@@ -19,6 +19,7 @@ def arima(df, p, d, q):
 # If bitch != side
 if __name__ == "__main__":
     # Import data (excel)
+    # Note that applying ARIMA to storage levels will likely not produce useful results, as there are many outside factors affecting storage.
     df = pd.read_excel("EIA Weekly May 2019.xlsx", sheet_name="Query Results")
     df = df[["WeekEnding", "Lower48StocksBcf"]]
     df["WeekEnding"] = pd.to_datetime(df["WeekEnding"])
@@ -35,7 +36,7 @@ if __name__ == "__main__":
     ## Moving Average : model using the dependency between an observation and residual error from a moving average model
 
     # ARIMA notation is ARIMA(p,d,q) where:
-    ## p : the number of lag observations included in the model
+    ## p : the number of lag observations (past values) included in the model
     ## d : the number of times the raw observation are differenced (degrees of differencing)
     ## q : size of the moving average window
 
