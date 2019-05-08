@@ -7,28 +7,31 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
 from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.graphics.tsaplots import plot_acf
 from pyramid.arima import auto_arima, ARIMA
+import sklearn.metrics as skmetrics
 
 
 # If bitch != side
 if __name__ == "__main__":
     # Import data (excel)
-    # Note that applying ARIMA to storage levels will likely not produce useful results, as there are many outside factors affecting storage
     df = pd.read_excel("EIA Weekly May 2019.xlsx", sheet_name="Query Results")
     df = df[["WeekEnding", "Lower48StocksBcf"]]
     df["WeekEnding"] = pd.to_datetime(df["WeekEnding"])
 
-    # # Plot storage level
-    # plt.plot(df)
-    # plt.xlabel("Date")
-    # plt.ylabel("Lower 48 Inventory (Bcf)")
-    # plt.show()
+    # Plot storage inventory
+    plt.plot(df.set_index("WeekEnding"))
+    plt.xlabel("Date")
+    plt.ylabel("Lower 48 Inventory (Bcf)")
+    plt.show()
 
-    # # Decompose the time series using seasonal_decompose ?? Residuals ??
-    # decomp = seasonal_decompose(df.set_index("WeekEnding"), model="multiplicative")
-    # decomp.plot()
-    # plt.show()
-    # # Residuals seem a touch high, but multiplicative model seems to fit well ??
+    # Decompose the time series using seasonal_decompose ?? Residuals ??
+    decomp = seasonal_decompose(df.set_index("WeekEnding"), model="multiplicative")
+    decomp.plot()
+    plt.show()
+    # Residuals seem a touch high, but multiplicative model seems to fit well ??
+
 
     # Introduce AutoRegressive Integrated Moving Average (ARIMA)
     ## AutoRegressive : model using dependent relationship between an observation and some number of lagged observations
@@ -40,15 +43,26 @@ if __name__ == "__main__":
     ## d : the number of times the raw observation are differenced (degrees of differencing)
     ## q : size of the moving average window
 
-    # We can add a seasonal element to the ARIMA model (SARIMA), with elements SARIMA(P,D,Q) which explain the seasonal component
+    # We can add a seasonal element to the ARIMA model (SARIMA), with elements SARIMA(P,D,Q), which will predict the seasonal component
 
-    # # To find values of p, d, and q we can use autocorrelation, correlation, domain experience, etc. ??
-    # # Auto-correlation. How does this work ??
-    # pd.plotting.autocorrelation_plot(df.set_index("WeekEnding"))
-    # plt.show()
 
-    # Looking at this plot the positive correlation is 'significant' for the first 8 lags
+    # Use Augmented Dickey Fuller test to check if series is stationary
+    adf_result = adfuller(df["Lower48StocksBcf"])
+    print("ADF Statistic:", adf_result[0])
+    print("p-value:", result[1])
+    # p-value = X, so the series has to be differenced
+
+    # Plot Auto-correlations with differencing. How does this work ??
+    fig, axes = plt.subplots(3, 1, sharex=True)
+    plot_acf(df.set_index("WeekEnding"), ax=axes[0])
+    plot_acf(df.set_index("WeekEnding").diff().dropna(), ax=axes[1])
+    plot_acf(df.set_index("WeekEnding").diff().diff().dropna(), ax=axes[2])
+    pd.plotting.autocorrelation_plot(df.set_index("WeekEnding"))
+    plt.show()
+    # Looking at the zero-order differencing the positive correlation is 'significant' for the first 8 lags
+    # First-order differencing the positive correlation is 'significant' for the first X lags
     # p ~ 8
+
 
     # Akaike information criterion (AIC) ??
     ## An estimator of the relative quality of statistical models for a given set of data
@@ -66,25 +80,29 @@ if __name__ == "__main__":
     # print("Optimal parameters:", stepwise.get_params())
     # print("AIC score:", stepwise.aic())
 
-    # Order = (2,0,0)
-    # Seasonal order = (1,1,2,52)
-    # Score = 6964
-    ## Score seems high, also lookback is very small
+    # Results from m=52 auto-arima
+    ## Order = (2,0,0)
+    ## Seasonal order = (1,1,2,52)
+    ## Score = 6964
+    ### Score seems high, also lookback is very small
 
-    # Train / test split ?? Experiment with splitting
+
+    # Train / test data split
     train = df[df["WeekEnding"] < datetime.datetime.strptime("2017-12-31", "%Y-%m-%d")]
     test = df[df["WeekEnding"] > datetime.datetime.strptime("2017-12-31", "%Y-%m-%d")]
 
     # Run ARIMA with found parameters
-    stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(2,0,2), seasonal_order=(2,1,0,12), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")
+    stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(8,1,12), seasonal_order=(2,1,1,52), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")
     # Fit and predict
     print("Fitting and Predicting...")
     stepwise.fit(train.drop("WeekEnding", axis=1))
     future = stepwise.predict(n_periods=len(test.index))
 
-    # Merge data
+
+    # Merge predictions with raw data
     future = pd.DataFrame(future, index=test["WeekEnding"], columns=["Forecast"])
     df = df.set_index("WeekEnding").join(future, how="outer")
+    forecast = df.dropna()
     
     # Plot vs actual data
     plt.plot(df)
@@ -92,9 +110,10 @@ if __name__ == "__main__":
     plt.ylabel("Lower 48 Inventory (Bcf)")
     plt.show()
 
-    plt.plot(df.tail(len(test.index)))
+    plt.plot(forecast)
     plt.xlabel("Date")
     plt.ylabel("Lower 48 Inventory (Bcf)")
     plt.show()
 
     # Much wow, now show how shit the model is
+    print(skmetrics.r2_score(forecast["Lower48StocksBcf"], forecast["Forecast"]))
