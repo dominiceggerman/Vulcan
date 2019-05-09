@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # Use Augmented Dickey Fuller test to check if series is stationary
     adf_result = adfuller(df["Lower48StocksBcf"])
     print("ADF Statistic:", adf_result[0])
-    print("p-value:", result[1])
+    print("p-value:", adf_result[1])
     # p-value = X, so the series has to be differenced
 
     # Plot Auto-correlations with differencing. How does this work ??
@@ -57,11 +57,9 @@ if __name__ == "__main__":
     plot_acf(df.set_index("WeekEnding"), ax=axes[0])
     plot_acf(df.set_index("WeekEnding").diff().dropna(), ax=axes[1])
     plot_acf(df.set_index("WeekEnding").diff().diff().dropna(), ax=axes[2])
-    pd.plotting.autocorrelation_plot(df.set_index("WeekEnding"))
+    # pd.plotting.autocorrelation_plot(df.set_index("WeekEnding"))
     plt.show()
-    # Looking at the zero-order differencing the positive correlation is 'significant' for the first 8 lags
-    # First-order differencing the positive correlation is 'significant' for the first X lags
-    # p ~ 8
+    # First-order differencing the positive correlation is 'significant' for the first 10 lags (-), hits blue at 8
 
 
     # Akaike information criterion (AIC) ??
@@ -92,7 +90,7 @@ if __name__ == "__main__":
     test = df[df["WeekEnding"] > datetime.datetime.strptime("2017-12-31", "%Y-%m-%d")]
 
     # Run ARIMA with found parameters
-    stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(8,1,12), seasonal_order=(2,1,1,52), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")
+    stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(10,1,12), seasonal_order=(2,1,1,52), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")
     # Fit and predict
     print("Fitting and Predicting...")
     stepwise.fit(train.drop("WeekEnding", axis=1))
