@@ -86,8 +86,8 @@ if __name__ == "__main__":
 
 
     # Train / test data split
-    train = df[df["WeekEnding"] < datetime.datetime.strptime("2017-12-31", "%Y-%m-%d")]
-    test = df[df["WeekEnding"] > datetime.datetime.strptime("2017-12-31", "%Y-%m-%d")]
+    train = df[df["WeekEnding"] < datetime.datetime.strptime("2015-12-31", "%Y-%m-%d")]
+    test = df[df["WeekEnding"] > datetime.datetime.strptime("2015-12-31", "%Y-%m-%d")]
 
     # Run ARIMA with found parameters
     stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(10,1,12), seasonal_order=(2,1,1,52), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")

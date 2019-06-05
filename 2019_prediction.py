@@ -26,18 +26,24 @@ if __name__ == "__main__":
     plt.ylabel("Lower 48 Inventory (Bcf)")
     plt.show()
 
+    # Date
+    the_date = datetime.datetime.strptime("2018-6-15", "%Y-%m-%d")
+
+    # Train / test data split
+    train = df[df["WeekEnding"] < the_date]
+    test = df[df["WeekEnding"] > the_date]
+
     # Run ARIMA with found parameters
     stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(10,1,12), seasonal_order=(2,1,1,52), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")
     # Fit and predict
     print("Fitting and Predicting...")
-    stepwise.fit(df.drop("WeekEnding", axis=1))
+    stepwise.fit(train.drop("WeekEnding", axis=1))
     future = stepwise.predict(n_periods=52)
 
     print(future)
 
     # Merge predictions with raw data
-    year_start = datetime.datetime.strptime("2018-12-28", "%Y-%m-%d") + datetime.timedelta(days=7)
-    report_week = [year_start + datetime.timedelta(days=7*i) for i in range(52)]
+    report_week = [the_date + datetime.timedelta(days=7*i) for i in range(52)]
     future = pd.DataFrame(future, index=report_week, columns=["Forecast"])
     df = df.set_index("WeekEnding").join(future, how="outer")
     
