@@ -8,9 +8,36 @@ import matplotlib.pyplot as plt
 import datetime
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
-from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from pyramid.arima import auto_arima, ARIMA
 import sklearn.metrics as skmetrics
+
+
+# Plot storage inventory
+def plotStorage(df):
+    plt.plot(df.set_index("WeekEnding"))
+    plt.xlabel("Date")
+    plt.ylabel("Lower 48 Inventory (Bcf)")
+    plt.show()
+    
+
+# Seasonally decompose the time series
+def seasonalDecomp(df):
+    # Decompose the time series using seasonal_decompose ?? Residuals ??
+    decomp = seasonal_decompose(df.set_index("WeekEnding"), model="multiplicative")
+    decomp.plot()
+    plt.show()
+    # Residuals seem a touch high, but multiplicative model seems to fit well ??
+
+# Plot Auto-correlations with differencing. How does this work ??
+def diffAutoCorr(df):
+    fig, axes = plt.subplots(3, 1, sharex=True)
+    plot_acf(df.set_index("WeekEnding"), ax=axes[0])
+    plot_acf(df.set_index("WeekEnding").diff().dropna(), ax=axes[1])
+    plot_acf(df.set_index("WeekEnding").diff().diff().dropna(), ax=axes[2])
+    # pd.plotting.autocorrelation_plot(df.set_index("WeekEnding"))
+    plt.show()
+    # First-order differencing the positive correlation is 'significant' for the first 10 lags (-), hits blue at 8
 
 
 # If bitch != side
@@ -20,17 +47,11 @@ if __name__ == "__main__":
     df = df[["WeekEnding", "Lower48StocksBcf"]]
     df["WeekEnding"] = pd.to_datetime(df["WeekEnding"])
 
-    # Plot storage inventory
-    plt.plot(df.set_index("WeekEnding"))
-    plt.xlabel("Date")
-    plt.ylabel("Lower 48 Inventory (Bcf)")
-    plt.show()
+    # # Plot storage inventory
+    # plotStorage(df)
 
-    # Decompose the time series using seasonal_decompose ?? Residuals ??
-    decomp = seasonal_decompose(df.set_index("WeekEnding"), model="multiplicative")
-    decomp.plot()
-    plt.show()
-    # Residuals seem a touch high, but multiplicative model seems to fit well ??
+    # # Decompose the time series using seasonal_decompose
+    # seasonalDecomp(df)
 
 
     # Introduce AutoRegressive Integrated Moving Average (ARIMA)
@@ -46,20 +67,14 @@ if __name__ == "__main__":
     # We can add a seasonal element to the ARIMA model (SARIMA), with elements SARIMA(P,D,Q), which will predict the seasonal component
 
 
-    # Use Augmented Dickey Fuller test to check if series is stationary
-    adf_result = adfuller(df["Lower48StocksBcf"])
-    print("ADF Statistic:", adf_result[0])
-    print("p-value:", adf_result[1])
-    # p-value = X, so the series has to be differenced
+    # # Use Augmented Dickey Fuller test to check if series is stationary
+    # adf_result = adfuller(df["Lower48StocksBcf"])
+    # print("ADF Statistic:", adf_result[0])
+    # print("p-value:", adf_result[1])
+    # # p-value = X, so the series has to be differenced
 
-    # Plot Auto-correlations with differencing. How does this work ??
-    fig, axes = plt.subplots(3, 1, sharex=True)
-    plot_acf(df.set_index("WeekEnding"), ax=axes[0])
-    plot_acf(df.set_index("WeekEnding").diff().dropna(), ax=axes[1])
-    plot_acf(df.set_index("WeekEnding").diff().diff().dropna(), ax=axes[2])
-    # pd.plotting.autocorrelation_plot(df.set_index("WeekEnding"))
-    plt.show()
-    # First-order differencing the positive correlation is 'significant' for the first 10 lags (-), hits blue at 8
+    # # Plot Auto-correlations with differencing. How does this work ??
+    # diffAutoCorr(df)
 
 
     # Akaike information criterion (AIC) ??
@@ -86,11 +101,11 @@ if __name__ == "__main__":
 
 
     # Train / test data split
-    train = df[df["WeekEnding"] < datetime.datetime.strptime("2015-12-31", "%Y-%m-%d")]
-    test = df[df["WeekEnding"] > datetime.datetime.strptime("2015-12-31", "%Y-%m-%d")]
+    train = df[df["WeekEnding"] < datetime.datetime.strptime("2014-12-31", "%Y-%m-%d")]
+    test = df[df["WeekEnding"] > datetime.datetime.strptime("2014-12-31", "%Y-%m-%d")]
 
     # Run ARIMA with found parameters
-    stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(10,1,12), seasonal_order=(2,1,1,52), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")
+    stepwise = ARIMA(callback=None, disp=0, maxiter=50, method=None, order=(10,1,12), seasonal_order=(4,1,2,52), solver="lbfgs", suppress_warnings=True, transparams=True, trend="c")
     # Fit and predict
     print("Fitting and Predicting...")
     stepwise.fit(train.drop("WeekEnding", axis=1))
